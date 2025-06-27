@@ -1198,7 +1198,7 @@ class AbacusHOD:
         return clustering
 
     def compute_multipole(
-        self, mock_dict, rpbins, pimax, sbins, nbins_mu, orders=[0, 2], Nthread=8
+        self, mock_dict, sbins, nbins_mu, orders=[0, 2], Nthread=8
     ):
         clustering = {}
         for i1, tr1 in enumerate(mock_dict.keys()):
@@ -1219,8 +1219,9 @@ class AbacusHOD:
                         nbins_mu=nbins_mu,
                         orders=orders,
                     )
-                    new_wp = calc_wp_fast(x1, y1, z1, rpbins, pimax, self.lbox, Nthread)
-                    clustering[tr1 + '_' + tr2] = np.concatenate((new_wp, new_multi))
+                    # new_wp = calc_wp_fast(x1, y1, z1, rpbins, pimax, self.lbox, Nthread)
+                    # clustering[tr1 + '_' + tr2] = np.concatenate((new_wp, new_multi))
+                    clustering[tr1 + '_' + tr2] = new_multi
                 else:
                     x2 = mock_dict[tr2]['x']
                     y2 = mock_dict[tr2]['y']
@@ -1229,7 +1230,7 @@ class AbacusHOD:
                         x1,
                         y1,
                         z1,
-                        rpbins,
+                        sbins,
                         self.lbox,
                         Nthread,
                         x2=x2,
@@ -1238,19 +1239,20 @@ class AbacusHOD:
                         nbins_mu=nbins_mu,
                         orders=orders,
                     )
-                    new_wp = calc_wp_fast(
-                        x1,
-                        y1,
-                        z1,
-                        rpbins,
-                        pimax,
-                        self.lbox,
-                        Nthread,
-                        x2=x2,
-                        y2=y2,
-                        z2=z2,
-                    )
-                    clustering[tr1 + '_' + tr2] = np.concatenate((new_wp, new_multi))
+                    # new_wp = calc_wp_fast(
+                    #     x1,
+                    #     y1,
+                    #     z1,
+                    #     rpbins,
+                    #     pimax,
+                    #     self.lbox,
+                    #     Nthread,
+                    #     x2=x2,
+                    #     y2=y2,
+                    #     z2=z2,
+                    # )
+                    # clustering[tr1 + '_' + tr2] = np.concatenate((new_wp, new_multi))
+                    clustering[tr1 + '_' + tr2] = new_multi
                     clustering[tr2 + '_' + tr1] = clustering[tr1 + '_' + tr2]
         return clustering
 

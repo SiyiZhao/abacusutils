@@ -361,7 +361,7 @@ def calc_wp_fast(
             max_cells_per_dim=num_cells,
         )
         DD_counts = results['npairs']
-    print('corrfunc took time ', time.time() - cf_start)
+    # print('corrfunc took time ', time.time() - cf_start)
     DD_counts = DD_counts.reshape((len(rpbins) - 1, int(pimax)))
 
     # RR_counts = np.zeros((len(rpbins) - 1, int(pimax)))

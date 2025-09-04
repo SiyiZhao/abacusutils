@@ -197,6 +197,7 @@ def gen_cent(
             QSO_hod_dict['Bcent'],
             QSO_hod_dict['ic'],
         )
+        vsmear_Q = QSO_hod_dict['vsmear']
 
     H = len(mass)
 
@@ -358,7 +359,6 @@ def gen_cent(
                 qso_vy[j3] = vel[i, 1] + alpha_c_Q * vdev[i, 1]  # velocity bias
                 qso_z[j3] = pos[i, 2]
                 qso_vz[j3] = vel[i, 2] + alpha_c_Q * vdev[i, 2]  # velocity bias
-                # rsd only applies to the z direction
                 if rsd and origin is not None:
                     nx = qso_x[j3] - origin[0]
                     ny = qso_y[j3] - origin[1]
@@ -374,7 +374,9 @@ def gen_cent(
                     qso_y[j3] = qso_y[j3] + proj * ny
                     qso_z[j3] = qso_z[j3] + proj * nz
                 elif rsd:
-                    qso_z[j3] = wrap(pos[i, 2] + qso_vz[j3] * inv_velz2kms, lbox)
+                    # qso_z[j3] = wrap(pos[i, 2] + qso_vz[j3] * inv_velz2kms, lbox)
+                    dvz_smear = np.random.normal(loc=0.0, scale=vsmear_Q, size=len(pos[i, 2]))
+                    qso_z[j3] = wrap(pos[i, 2] + (qso_vz[j3]+ dvz_smear) * inv_velz2kms, lbox)
                 qso_mass[j3] = mass[i]
                 qso_id[j3] = ids[i]
                 j3 += 1
@@ -941,6 +943,7 @@ def gen_sats(
             QSO_hod_dict['Bsat'],
             QSO_hod_dict['ic'],
         )
+        vsmear_Q = QSO_hod_dict['vsmear']
 
     H = len(hmass)  # num of particles
 
@@ -1222,7 +1225,9 @@ def gen_sats(
                     qso_y[j3] = qso_y[j3] + proj * ny
                     qso_z[j3] = qso_z[j3] + proj * nz
                 elif rsd:
-                    qso_z[j3] = wrap(qso_z[j3] + qso_vz[j3] * inv_velz2kms, lbox)
+                    # qso_z[j3] = wrap(qso_z[j3] + qso_vz[j3] * inv_velz2kms, lbox)
+                    dvz_smear = np.random.normal(loc=0.0, scale=vsmear_Q, size=len(qso_z[j3]))
+                    qso_z[j3] = wrap(qso_z[j3] + (qso_vz[j3] + dvz_smear) * inv_velz2kms, lbox)
                 qso_mass[j3] = hmass[i]
                 qso_id[j3] = hid[i]
                 j3 += 1
@@ -1459,6 +1464,8 @@ def gen_gals(
         QSO_hod_dict['ic'] = QSO_HOD.get('ic', 1.0)
 
         QSO_hod_dict['f_sigv'] = QSO_HOD.get('f_sigv', 0)
+        
+        QSO_hod_dict['vsmear'] = QSO_HOD.get('vsmear', 0)
 
     else:
         want_QSO = False

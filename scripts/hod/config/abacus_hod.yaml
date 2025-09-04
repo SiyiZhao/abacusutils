@@ -91,6 +91,7 @@ HOD_params:
         Bcent: 0
         Bsat: 0
         ic: 1.0
+        vsmear: 0.0               # velocity smearing in km/s
 
 # clustering parameters
 clustering_params:

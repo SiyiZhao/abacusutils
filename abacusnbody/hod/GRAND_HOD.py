@@ -375,7 +375,7 @@ def gen_cent(
                     qso_z[j3] = qso_z[j3] + proj * nz
                 elif rsd:
                     # qso_z[j3] = wrap(pos[i, 2] + qso_vz[j3] * inv_velz2kms, lbox)
-                    dvz_smear = np.random.normal(loc=0.0, scale=vsmear_Q, size=len(pos[i, 2]))
+                    dvz_smear = np.random.normal(loc=0.0, scale=vsmear_Q)
                     qso_z[j3] = wrap(pos[i, 2] + (qso_vz[j3]+ dvz_smear) * inv_velz2kms, lbox)
                 qso_mass[j3] = mass[i]
                 qso_id[j3] = ids[i]
@@ -1226,7 +1226,7 @@ def gen_sats(
                     qso_z[j3] = qso_z[j3] + proj * nz
                 elif rsd:
                     # qso_z[j3] = wrap(qso_z[j3] + qso_vz[j3] * inv_velz2kms, lbox)
-                    dvz_smear = np.random.normal(loc=0.0, scale=vsmear_Q, size=len(qso_z[j3]))
+                    dvz_smear = np.random.normal(loc=0.0, scale=vsmear_Q)
                     qso_z[j3] = wrap(qso_z[j3] + (qso_vz[j3] + dvz_smear) * inv_velz2kms, lbox)
                 qso_mass[j3] = hmass[i]
                 qso_id[j3] = hid[i]

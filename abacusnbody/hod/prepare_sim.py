@@ -1032,7 +1032,7 @@ def main(
     os.makedirs(savedir, exist_ok=True)
 
     tracer_flags = config['HOD_params']['tracer_flags']
-    MT = False
+    MT = True
     if tracer_flags['ELG'] or tracer_flags['QSO']:
         MT = True
     want_ranks = config['HOD_params'].get('want_ranks', False)

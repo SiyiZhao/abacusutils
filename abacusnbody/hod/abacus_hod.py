@@ -35,6 +35,7 @@ from .GRAND_HOD import (
     N_sat_generic,
 )
 
+from .dv_error import load_inv_cdf_or_empty
 # TODO B.H.: staging can be shorter and prettier; perhaps asdf for h5 and ecsv?
 
 
@@ -171,6 +172,21 @@ class AbacusHOD:
         self.want_shear = HOD_params.get('want_shear', False)
         self.want_expvel = HOD_params.get('want_expvel', False)
         self.want_rsd = HOD_params['want_rsd']
+        self.want_dv = HOD_params.get('want_dv', False)
+        #H.Z. redshift error
+        self.dv_draw_L = HOD_params.get('dv_draw_L', None)
+        self.dv_draw_E = HOD_params.get('dv_draw_E', None)
+        self.dv_draw_Q = HOD_params.get('dv_draw_Q', None)
+
+        self.u_grid_L, self.x_grid_L = load_inv_cdf_or_empty(self.want_dv, tracers, 'LRG', self.dv_draw_L)
+        self.u_grid_E, self.x_grid_E = load_inv_cdf_or_empty(self.want_dv, tracers, 'ELG', self.dv_draw_E)
+        self.u_grid_Q, self.x_grid_Q = load_inv_cdf_or_empty(self.want_dv, tracers, 'QSO', self.dv_draw_Q)
+
+        # H.Z. satellite proxy choice
+        self.use_particles = HOD_params.get('use_particles', False)
+        self.use_profiles = HOD_params.get('use_profiles', True)
+        # end H.Z
+        
 
         if clustering_params is not None:
             # clusteringparameters
@@ -254,6 +270,7 @@ class AbacusHOD:
         Constructor call this function to load the halo+particle subsamples onto memory.
         """
         # all paths relevant for mock generation
+        rng = np.random.default_rng(seed=12345)
         output_dir = Path(self.output_dir)
         simname = Path(self.sim_name)
         sim_dir = Path(self.sim_dir)
@@ -315,35 +332,53 @@ class AbacusHOD:
         Nhalos = np.zeros(params['numslabs'])
         Nparts = np.zeros(params['numslabs'])
         for eslab in range(start, end):
-            if (
-                ('ELG' not in self.tracers.keys())
-                and ('QSO' not in self.tracers.keys())
-                and (not self.force_mt)
-            ):
+            # H.Z. different satellite proxy have different downsample file name
+            if self.use_particles:
+                if (
+                    ('ELG' not in self.tracers.keys())
+                    and ('QSO' not in self.tracers.keys())
+                    and (not self.force_mt)
+                ):
+                    halofilename = subsample_dir / (
+                        'halos_xcom_%d_seed600_abacushod_oldfenv' % eslab
+                    )
+                    particlefilename = subsample_dir / (
+                        'particles_xcom_%d_seed600_abacushod_oldfenv' % eslab
+                    )
+                else:
+                    halofilename = subsample_dir / (
+                        'halos_xcom_%d_seed600_abacushod_oldfenv_MT' % eslab
+                    )
+                    particlefilename = subsample_dir / (
+                        'particles_xcom_%d_seed600_abacushod_oldfenv_MT' % eslab
+                    )
+    
+                if self.want_ranks:
+                    particlefilename = str(particlefilename) + '_withranks'
+                halofilename = str(halofilename) + '_new.h5'
+                particlefilename = str(particlefilename) + '_new.h5'
+    
+                newfile = h5py.File(halofilename, 'r')
+                Nhalos[eslab - start] = len(newfile['halos'])
+                if self.z_type == 'primary' or self.z_type == 'lightcone':
+                    newpart = h5py.File(particlefilename, 'r')
+                    Nparts[eslab - start] = len(newpart['particles'])
+            elif self.use_profiles:
                 halofilename = subsample_dir / (
-                    'halos_xcom_%d_seed600_abacushod_oldfenv' % eslab
+                    'halos_xcom_%d_seed600_abacushod_profiles' % eslab
                 )
                 particlefilename = subsample_dir / (
-                    'particles_xcom_%d_seed600_abacushod_oldfenv' % eslab
+                    'particles_xcom_%d_seed600_abacushod_profiles' % eslab
                 )
-            else:
-                halofilename = subsample_dir / (
-                    'halos_xcom_%d_seed600_abacushod_oldfenv_MT' % eslab
-                )
-                particlefilename = subsample_dir / (
-                    'particles_xcom_%d_seed600_abacushod_oldfenv_MT' % eslab
-                )
-
-            if self.want_ranks:
-                particlefilename = str(particlefilename) + '_withranks'
-            halofilename = str(halofilename) + '_new.h5'
-            particlefilename = str(particlefilename) + '_new.h5'
-
-            newfile = h5py.File(halofilename, 'r')
-            Nhalos[eslab - start] = len(newfile['halos'])
-            if self.z_type == 'primary' or self.z_type == 'lightcone':
+    
+                halofilename = str(halofilename) + '.h5'
+                particlefilename = str(particlefilename) + '.h5'
+    
+                newfile = h5py.File(halofilename, 'r')
+                Nhalos[eslab - start] = len(newfile['halos'])
                 newpart = h5py.File(particlefilename, 'r')
-                Nparts[eslab - start] = len(newpart['particles'])
+                Nparts[eslab - start] = len(newpart['particles'])   
+                
 
         Nhalos = Nhalos.astype(int)
         Nparts = Nparts.astype(int)
@@ -358,9 +393,10 @@ class AbacusHOD:
         hmultis = np.empty([Nhalos_tot])
         hrandoms = np.empty([Nhalos_tot])
         hveldev = np.empty((Nhalos_tot, 3))
-        hsigma3d = np.empty([Nhalos_tot])
-        hc = np.empty([Nhalos_tot])
-        hrvir = np.empty([Nhalos_tot])
+        # H.Z. comment out following 3 field, as they are not needed for either proxy
+        # hsigma3d = np.empty([Nhalos_tot])
+        # hc = np.empty([Nhalos_tot])
+        # hrvir = np.empty([Nhalos_tot])
         if self.want_AB:
             hdeltac = np.empty([Nhalos_tot])
             hfenv = np.empty([Nhalos_tot])
@@ -368,26 +404,37 @@ class AbacusHOD:
             hshear = np.empty([Nhalos_tot])
 
         ppos = np.empty((Nparts_tot, 3))
-        pvel = np.empty((Nparts_tot, 3))
         phvel = np.empty((Nparts_tot, 3))
         phmass = np.empty([Nparts_tot])
         phid = np.empty([Nparts_tot], dtype=int)
         pNp = np.empty([Nparts_tot])
         psubsampling = np.empty([Nparts_tot])
         prandoms = np.empty([Nparts_tot])
+        # H.Z. different proxy need different fields
+        if self.use_particles:
+            pvel = np.empty((Nparts_tot, 3))
+            if self.want_shear:
+                pshear = np.empty([Nparts_tot])
+    
+            # ranks
+            if self.want_ranks:
+                p_ranks = np.empty([Nparts_tot])
+                p_ranksv = np.empty([Nparts_tot])
+                p_ranksp = np.empty([Nparts_tot])
+                p_ranksr = np.empty([Nparts_tot])
+                p_ranksc = np.empty([Nparts_tot])
+        elif self.use_profiles:
+            hpnum = np.empty([Nhalos_tot])
+            phpos = np.empty((Nparts_tot, 3))
+            phconc = np.empty([Nparts_tot])
+            phrvir = np.empty([Nparts_tot])
+            prandoms_sate = np.empty([Nparts_tot])
+            phveldev = np.empty((Nparts_tot, 3))            
+            
         if self.want_AB:
             pdeltac = np.empty([Nparts_tot])
             pfenv = np.empty([Nparts_tot])
-        if self.want_shear:
-            pshear = np.empty([Nparts_tot])
 
-        # ranks
-        if self.want_ranks:
-            p_ranks = np.empty([Nparts_tot])
-            p_ranksv = np.empty([Nparts_tot])
-            p_ranksp = np.empty([Nparts_tot])
-            p_ranksr = np.empty([Nparts_tot])
-            p_ranksc = np.empty([Nparts_tot])
 
         # B.H. make into ASDF
         # load all the halo and particle data we need
@@ -395,29 +442,41 @@ class AbacusHOD:
         parts_ticker = 0
         for eslab in range(start, end):
             self.logger.info(f'Loading simulation slab {eslab}')
-            if (
-                ('ELG' not in self.tracers.keys())
-                and ('QSO' not in self.tracers.keys())
-                and (not self.force_mt)
-            ):
+            if self.use_particles:
+                if (
+                    ('ELG' not in self.tracers.keys())
+                    and ('QSO' not in self.tracers.keys())
+                    and (not self.force_mt)
+                ):
+                    halofilename = subsample_dir / (
+                        'halos_xcom_%d_seed600_abacushod_oldfenv' % eslab
+                    )
+                    particlefilename = subsample_dir / (
+                        'particles_xcom_%d_seed600_abacushod_oldfenv' % eslab
+                    )
+                else:
+                    halofilename = subsample_dir / (
+                        'halos_xcom_%d_seed600_abacushod_oldfenv_MT' % eslab
+                    )
+                    particlefilename = subsample_dir / (
+                        'particles_xcom_%d_seed600_abacushod_oldfenv_MT' % eslab
+                    )
+    
+                if self.want_ranks:
+                    particlefilename = str(particlefilename) + '_withranks'
+                halofilename = str(halofilename) + '_new.h5'
+                particlefilename = str(particlefilename) + '_new.h5'
+                
+            elif self.use_profiles:
                 halofilename = subsample_dir / (
-                    'halos_xcom_%d_seed600_abacushod_oldfenv' % eslab
+                    'halos_xcom_%d_seed600_abacushod_profiles' % eslab
                 )
                 particlefilename = subsample_dir / (
-                    'particles_xcom_%d_seed600_abacushod_oldfenv' % eslab
-                )
-            else:
-                halofilename = subsample_dir / (
-                    'halos_xcom_%d_seed600_abacushod_oldfenv_MT' % eslab
-                )
-                particlefilename = subsample_dir / (
-                    'particles_xcom_%d_seed600_abacushod_oldfenv_MT' % eslab
+                    'particles_xcom_%d_seed600_abacushod_profiles' % eslab
                 )
 
-            if self.want_ranks:
-                particlefilename = str(particlefilename) + '_withranks'
-            halofilename = str(halofilename) + '_new.h5'
-            particlefilename = str(particlefilename) + '_new.h5'
+                halofilename = str(halofilename) + '.h5'
+                particlefilename = str(particlefilename) + '.h5'                
 
             newfile = h5py.File(halofilename, 'r')
             maskedhalos = newfile['halos']
@@ -442,11 +501,12 @@ class AbacusHOD:
                 halo_vel_dev = np.concatenate(
                     (halo_vel_dev, halo_vel_dev, halo_vel_dev)
                 ).reshape(-1, 3)
-            halo_sigma3d = maskedhalos['sigmav3d_L2com']  # 3d velocity dispersion
-            halo_c = (
-                maskedhalos['r98_L2com'] / maskedhalos['r25_L2com']
-            )  # concentration
-            halo_rvir = maskedhalos['r98_L2com']  # rvir but using r98
+            # H.Z. comment out following 3 field, as they are not needed for either proxy
+            # halo_sigma3d = maskedhalos['sigmav3d_L2com']  # 3d velocity dispersion
+            # halo_c = (
+            #     maskedhalos['r98_L2com'] / maskedhalos['r25_L2com']
+            # )  # concentration
+            # halo_rvir = maskedhalos['r98_L2com']  # rvir but using r98
             halo_mass = maskedhalos['N'] * params['Mpart']  # halo mass, Msun / h, 200b
 
             halo_deltac = maskedhalos['deltac_rank']  # halo concentration
@@ -464,9 +524,9 @@ class AbacusHOD:
             hmultis[halo_ticker : halo_ticker + Nhalos[eslab - start]] = halo_multi
             hrandoms[halo_ticker : halo_ticker + Nhalos[eslab - start]] = halo_randoms
             hveldev[halo_ticker : halo_ticker + Nhalos[eslab - start]] = halo_vel_dev
-            hsigma3d[halo_ticker : halo_ticker + Nhalos[eslab - start]] = halo_sigma3d
-            hc[halo_ticker : halo_ticker + Nhalos[eslab - start]] = halo_c
-            hrvir[halo_ticker : halo_ticker + Nhalos[eslab - start]] = halo_rvir
+            # hsigma3d[halo_ticker : halo_ticker + Nhalos[eslab - start]] = halo_sigma3d
+            # hc[halo_ticker : halo_ticker + Nhalos[eslab - start]] = halo_c
+            # hrvir[halo_ticker : halo_ticker + Nhalos[eslab - start]] = halo_rvir
             if self.want_AB:
                 halo_deltac = maskedhalos['deltac_rank']  # halo concentration
                 halo_fenv = maskedhalos['fenv_rank']  # halo velocities, km/s
@@ -477,66 +537,123 @@ class AbacusHOD:
                 hshear[halo_ticker : halo_ticker + Nhalos[eslab - start]] = halo_shear
             halo_ticker += Nhalos[eslab - start]
 
-            if self.z_type == 'primary' or self.z_type == 'lightcone':
+            if self.use_particles:
+                if self.z_type == 'primary' or self.z_type == 'lightcone':
+                    # extract particle data that we need
+                    newpart = h5py.File(particlefilename, 'r')
+                    subsample = newpart['particles']
+                    part_fields = subsample.dtype.fields.keys()
+                    part_pos = subsample['pos']
+                    part_vel = subsample['vel']
+                    part_hvel = subsample['halo_vel']
+                    part_halomass = subsample['halo_mass']  # msun / h
+                    part_haloid = subsample['halo_id'].astype(int)
+                    part_Np = subsample['Np']  # number of particles that end up in the halo
+                    part_subsample = subsample['downsample_halo']
+                    part_randoms = subsample['randoms']
+                    if self.want_AB:
+                        part_deltac = subsample['halo_deltac']
+                        part_fenv = subsample['halo_fenv']
+                    if self.want_shear:
+                        part_shear = subsample['halo_shear']
+    
+                    if self.want_ranks:
+                        assert 'ranks' in part_fields
+                        assert 'ranksv' in part_fields
+                        part_ranks = subsample['ranks']
+                        part_ranksv = subsample['ranksv']
+    
+                        if 'ranksp' in part_fields:
+                            part_ranksp = subsample['ranksp']
+                        else:
+                            part_ranksp = np.zeros(len(subsample))
+    
+                        if 'ranksr' in part_fields:
+                            part_ranksr = subsample['ranksr']
+                        else:
+                            part_ranksr = np.zeros(len(subsample))
+    
+                        if 'ranksc' in part_fields:
+                            part_ranksc = subsample['ranksc']
+                        else:
+                            part_ranksc = np.zeros(len(subsample))
+    
+                        p_ranks[parts_ticker : parts_ticker + Nparts[eslab - start]] = (
+                            part_ranks
+                        )
+                        p_ranksv[parts_ticker : parts_ticker + Nparts[eslab - start]] = (
+                            part_ranksv
+                        )
+                        p_ranksp[parts_ticker : parts_ticker + Nparts[eslab - start]] = (
+                            part_ranksp
+                        )
+                        p_ranksr[parts_ticker : parts_ticker + Nparts[eslab - start]] = (
+                            part_ranksr
+                        )
+                        p_ranksc[parts_ticker : parts_ticker + Nparts[eslab - start]] = (
+                            part_ranksc
+                        )
+    
+                    # #     part_data_slab += [part_ranks, part_ranksv, part_ranksp, part_ranksr]
+                    # particle_data = vstack([particle_data, new_part_table])
+                    ppos[parts_ticker : parts_ticker + Nparts[eslab - start]] = part_pos
+                    pvel[parts_ticker : parts_ticker + Nparts[eslab - start]] = part_vel
+                    phvel[parts_ticker : parts_ticker + Nparts[eslab - start]] = part_hvel
+                    phmass[parts_ticker : parts_ticker + Nparts[eslab - start]] = (
+                        part_halomass
+                    )
+                    phid[parts_ticker : parts_ticker + Nparts[eslab - start]] = part_haloid
+                    pNp[parts_ticker : parts_ticker + Nparts[eslab - start]] = part_Np
+                    psubsampling[parts_ticker : parts_ticker + Nparts[eslab - start]] = (
+                        part_subsample
+                    )
+                    prandoms[parts_ticker : parts_ticker + Nparts[eslab - start]] = (
+                        part_randoms
+                    )
+                    if self.want_AB:
+                        pdeltac[parts_ticker : parts_ticker + Nparts[eslab - start]] = (
+                            part_deltac
+                        )
+                        pfenv[parts_ticker : parts_ticker + Nparts[eslab - start]] = (
+                            part_fenv
+                        )
+                    if self.want_shear:
+                        pshear[parts_ticker : parts_ticker + Nparts[eslab - start]] = (
+                            part_shear
+                        )
+                    parts_ticker += Nparts[eslab - start]
+            # H.Z. read field prepared for profile proxy
+            elif self.use_profiles:
                 # extract particle data that we need
                 newpart = h5py.File(particlefilename, 'r')
                 subsample = newpart['particles']
                 part_fields = subsample.dtype.fields.keys()
                 part_pos = subsample['pos']
-                part_vel = subsample['vel']
+                # part_vel = subsample['vel']
                 part_hvel = subsample['halo_vel']
                 part_halomass = subsample['halo_mass']  # msun / h
                 part_haloid = subsample['halo_id'].astype(int)
                 part_Np = subsample['Np']  # number of particles that end up in the halo
                 part_subsample = subsample['downsample_halo']
                 part_randoms = subsample['randoms']
+                # H.Z. profile proxy fields
+                part_hpos = subsample['halo_pos']
+                part_hconc = subsample['halo_conc']
+                part_hrvir = subsample['halo_rvir']
+                part_randoms_sate = subsample['randoms_sate']
+                part_hveldev = subsample['halo_randoms_gaus_vrms']
                 if self.want_AB:
                     part_deltac = subsample['halo_deltac']
                     part_fenv = subsample['halo_fenv']
                 if self.want_shear:
-                    part_shear = subsample['halo_shear']
+                    raise Exception('want_shear not work for profile proxy')
 
                 if self.want_ranks:
-                    assert 'ranks' in part_fields
-                    assert 'ranksv' in part_fields
-                    part_ranks = subsample['ranks']
-                    part_ranksv = subsample['ranksv']
-
-                    if 'ranksp' in part_fields:
-                        part_ranksp = subsample['ranksp']
-                    else:
-                        part_ranksp = np.zeros(len(subsample))
-
-                    if 'ranksr' in part_fields:
-                        part_ranksr = subsample['ranksr']
-                    else:
-                        part_ranksr = np.zeros(len(subsample))
-
-                    if 'ranksc' in part_fields:
-                        part_ranksc = subsample['ranksc']
-                    else:
-                        part_ranksc = np.zeros(len(subsample))
-
-                    p_ranks[parts_ticker : parts_ticker + Nparts[eslab - start]] = (
-                        part_ranks
-                    )
-                    p_ranksv[parts_ticker : parts_ticker + Nparts[eslab - start]] = (
-                        part_ranksv
-                    )
-                    p_ranksp[parts_ticker : parts_ticker + Nparts[eslab - start]] = (
-                        part_ranksp
-                    )
-                    p_ranksr[parts_ticker : parts_ticker + Nparts[eslab - start]] = (
-                        part_ranksr
-                    )
-                    p_ranksc[parts_ticker : parts_ticker + Nparts[eslab - start]] = (
-                        part_ranksc
-                    )
+                    raise Exception('want_ranks not work for profile proxy, but you can chose your own profiles')
 
                 # #     part_data_slab += [part_ranks, part_ranksv, part_ranksp, part_ranksr]
                 # particle_data = vstack([particle_data, new_part_table])
                 ppos[parts_ticker : parts_ticker + Nparts[eslab - start]] = part_pos
-                pvel[parts_ticker : parts_ticker + Nparts[eslab - start]] = part_vel
                 phvel[parts_ticker : parts_ticker + Nparts[eslab - start]] = part_hvel
                 phmass[parts_ticker : parts_ticker + Nparts[eslab - start]] = (
                     part_halomass
@@ -549,6 +666,15 @@ class AbacusHOD:
                 prandoms[parts_ticker : parts_ticker + Nparts[eslab - start]] = (
                     part_randoms
                 )
+
+                # H.Z.
+                phpos[parts_ticker: parts_ticker + Nparts[eslab-start]] =  part_hpos
+                phconc[parts_ticker: parts_ticker + Nparts[eslab-start]] =  part_hconc
+                phrvir[parts_ticker: parts_ticker + Nparts[eslab-start]] =  part_hrvir
+                prandoms_sate[parts_ticker: parts_ticker + Nparts[eslab-start]] =  part_randoms_sate
+                phveldev[parts_ticker: parts_ticker + Nparts[eslab-start]] =  part_hveldev
+                # end H.Z.
+                
                 if self.want_AB:
                     pdeltac[parts_ticker : parts_ticker + Nparts[eslab - start]] = (
                         part_deltac
@@ -556,12 +682,9 @@ class AbacusHOD:
                     pfenv[parts_ticker : parts_ticker + Nparts[eslab - start]] = (
                         part_fenv
                     )
-                if self.want_shear:
-                    pshear[parts_ticker : parts_ticker + Nparts[eslab - start]] = (
-                        part_shear
-                    )
-                parts_ticker += Nparts[eslab - start]
 
+                parts_ticker += Nparts[eslab - start]
+                
         # sort halos by hid, important for conformity
         if not np.all(hid[:-1] <= hid[1:]):
             self.logger.info('Sorting halos for conformity calculation.')
@@ -589,44 +712,70 @@ class AbacusHOD:
             'hmultis': hmultis,
             'hrandoms': hrandoms,
             'hveldev': hveldev,
-            'hsigma3d': hsigma3d,
-            'hc': hc,
-            'hrvir': hrvir,
+            # 'hsigma3d': hsigma3d,
+            # 'hc': hc,
+            # 'hrvir': hrvir,
         }
 
         pweights = 1 / pNp / psubsampling
         pinds = _searchsorted_parallel(hid, phid)
-        particle_data = {
-            'ppos': ppos,
-            'pvel': pvel,
-            'phvel': phvel,
-            'phmass': phmass,
-            'phid': phid,
-            'pweights': pweights,
-            'prandoms': prandoms,
-            'pinds': pinds,
-        }
+        if self.use_particles:
+            particle_data = {
+                'ppos': ppos,
+                'pvel': pvel,
+                'phvel': phvel,
+                'phmass': phmass,
+                'phid': phid,
+                'pweights': pweights,
+                'prandoms': prandoms,
+                'pinds': pinds,
+            }
+
+        elif self.use_profiles:
+            particle_data = {
+                'ppos': ppos,
+                'phvel': phvel,
+                'phmass': phmass,
+                'phid': phid,
+                'pweights': pweights,
+                'prandoms': prandoms,
+                'pinds': pinds,
+                'phpos': phpos, 
+                'phconc': phconc, 
+                'phrvir': phrvir, 
+                'prandoms_sate': prandoms_sate, 
+                'phveldev': phveldev, 
+            }
+            particle_data['extra_randoms'] = rng.random(len(particle_data['prandoms']), dtype=np.float64)
+            
         if self.want_AB:
             halo_data['hdeltac'] = hdeltac
             halo_data['hfenv'] = hfenv
             particle_data['pdeltac'] = pdeltac
             particle_data['pfenv'] = pfenv
-        if self.want_shear:
-            halo_data['hshear'] = hshear
-            particle_data['pshear'] = pshear
 
-        if self.want_ranks:
-            particle_data['pranks'] = p_ranks
-            particle_data['pranksv'] = p_ranksv
-            particle_data['pranksp'] = p_ranksp
-            particle_data['pranksr'] = p_ranksr
-            particle_data['pranksc'] = p_ranksc
-        else:
-            particle_data['pranks'] = np.ones(Nparts_tot)
-            particle_data['pranksv'] = np.ones(Nparts_tot)
-            particle_data['pranksp'] = np.ones(Nparts_tot)
-            particle_data['pranksr'] = np.ones(Nparts_tot)
-            particle_data['pranksc'] = np.ones(Nparts_tot)
+        if self.use_particles:
+            if self.want_shear:
+                halo_data['hshear'] = hshear
+                particle_data['pshear'] = pshear
+    
+            if self.want_ranks:
+                particle_data['pranks'] = p_ranks
+                particle_data['pranksv'] = p_ranksv
+                particle_data['pranksp'] = p_ranksp
+                particle_data['pranksr'] = p_ranksr
+                particle_data['pranksc'] = p_ranksc
+            else:
+                particle_data['pranks'] = np.ones(Nparts_tot)
+                particle_data['pranksv'] = np.ones(Nparts_tot)
+                particle_data['pranksp'] = np.ones(Nparts_tot)
+                particle_data['pranksr'] = np.ones(Nparts_tot)
+                particle_data['pranksc'] = np.ones(Nparts_tot)
+
+        halo_data['u_cent_mag']  = rng.random(len(halo_data['hrandoms']),  dtype=np.float64)
+        halo_data['u_cent_sign'] = rng.random(len(halo_data['hrandoms']),  dtype=np.float64)
+        particle_data['u_sat_mag']  = rng.random(len(particle_data['prandoms']), dtype=np.float64)
+        particle_data['u_sat_sign'] = rng.random(len(particle_data['prandoms']), dtype=np.float64)
 
         return halo_data, particle_data, params, mock_dir
 
@@ -634,8 +783,6 @@ class AbacusHOD:
         self,
         tracers=None,
         want_rsd=True,
-        want_nfw=False,
-        NFW_draw=None,
         reseed=None,
         write_to_disk=False,
         Nthread=16,
@@ -655,14 +802,14 @@ class AbacusHOD:
         ``want_rsd``: bool
             enable RSD? default ``True``.
 
-        ``want_nfw``: bool
-            Distribute satellites on NFW instead of particles? default ``False``.
-            Needs to feed in a long array of random numbers drawn from an NFW profile.
-            !!! NFW profile is unoptimized. It has different velocity bias. It does not support lightcone. !!!
+        ``use_particles`` : boolean
+            Flag of whether to generate satellites using particles.
+    
+        ``use_profiles`` : boolean
+            Flag of whether to generate satellites from profiles.
 
-        ``NFW_draw``: np.array
-            A long array of random numbers drawn from an NFW profile. P(x) = 1./(x*(1+x)**2)*x**2. default ``None``.
-            Only needed if ``want_nfw == True``.
+        ``want_dv``: bool
+            Flag of whether to include redshift error/catastrophic failure, calibrated by Shengyu/Jiaxi
 
         ``reseed``: int
             re-generate random numbers? supply random number seed. This overwrites the pre-generated random numbers, at a performance cost.
@@ -695,10 +842,21 @@ class AbacusHOD:
         """
         if tracers is None:
             tracers = self.tracers
-        if self.z_type == 'secondary' and not want_nfw:
+        if self.use_particles and self.use_profiles:
             raise RuntimeError(
-                'Secondary redshifts do not have particle pos/vel outputs and so only NFW profiles are supported'
+                'Chose only one satellite proxy'
             )
+        if self.z_type == 'secondary' and not self.use_profiles:
+            raise RuntimeError(
+                'Secondary redshifts do not have particle pos/vel outputs and so only profiles are supported'
+            )
+        if (self.want_dv) and ('LRG' in tracers.keys()) and len(self.u_grid_L) == 0:
+            self.u_grid_L, self.x_grid_L = load_inv_cdf_or_empty(self.want_dv, tracers, 'LRG', self.dv_draw_L)
+        if (self.want_dv) and ('ELG' in tracers.keys()) and len(self.u_grid_E) == 0:
+            self.u_grid_E, self.x_grid_E = load_inv_cdf_or_empty(self.want_dv, tracers, 'ELG', self.dv_draw_E)
+        if  (self.want_dv) and ('QSO' in tracers.keys()) and len(self.u_grid_Q) == 0:
+            self.u_grid_Q, self.x_grid_Q = load_inv_cdf_or_empty(self.want_dv, tracers, 'QSO', self.dv_draw_Q)
+        
         if reseed:
             start = time.time()
             # np.random.seed(reseed)
@@ -774,14 +932,21 @@ class AbacusHOD:
             Nthread,
             enable_ranks=self.want_ranks,
             rsd=want_rsd,
-            nfw=want_nfw,
-            NFW_draw=NFW_draw,
+            use_particles=self.use_particles,
+            use_profiles=self.use_profiles,
+            want_dv=self.want_dv,
+            u_grid_L=self.u_grid_L, 
+            x_grid_L=self.x_grid_L,
+            u_grid_E=self.u_grid_E, 
+            x_grid_E=self.x_grid_E,
+            u_grid_Q=self.u_grid_Q, 
+            x_grid_Q=self.x_grid_Q,
             write_to_disk=write_to_disk,
             savedir=self.mock_dir,
             verbose=verbose,
             fn_ext=fn_ext,
         )
-        self.logger.info(f'HOD generated in elapsed time {time.time() - start:.2f} s.')
+        if verbose: self.logger.info(f'HOD generated in elapsed time {time.time() - start:.2f} s.')
 
         return mock_dict
 
@@ -993,7 +1158,7 @@ class AbacusHOD:
         Nthread,
     ):
         """
-        internal helper to compute number of LRGs
+        internal helper to compute number of ELGs
         """
         numba.set_num_threads(Nthread)
 
@@ -1883,3 +2048,5 @@ def _searchsorted_parallel(a, b):
     for i in numba.prange(len(b)):
         res[i] = np.searchsorted(a, b[i])
     return res
+
+    

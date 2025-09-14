@@ -178,7 +178,7 @@ def calc_xirppi_fast(
             verbose=False,
         )
         DD_counts = results['npairs']
-    print('corrfunc took time ', time.time() - cf_start)
+    # print('corrfunc took time ', time.time() - cf_start)
 
     DD_counts_new = np.array(
         [
@@ -199,7 +199,7 @@ def calc_xirppi_fast(
         * 2
     )
     xirppi = DD_counts_new / RR_counts_new[:, None] - 1
-    print('corrfunc took ', time.time() - start, 'ngal ', len(x1))
+    # print('corrfunc took ', time.time() - start, 'ngal ', len(x1))
     return xirppi
 
 
@@ -361,7 +361,7 @@ def calc_wp_fast(
             max_cells_per_dim=num_cells,
         )
         DD_counts = results['npairs']
-    print('corrfunc took time ', time.time() - cf_start)
+    # print('corrfunc took time ', time.time() - cf_start)
     DD_counts = DD_counts.reshape((len(rpbins) - 1, int(pimax)))
 
     # RR_counts = np.zeros((len(rpbins) - 1, int(pimax)))

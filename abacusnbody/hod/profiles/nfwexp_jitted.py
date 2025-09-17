@@ -2,6 +2,8 @@ from numba import njit
 import numpy as np
 import math
 
+LOG2 = math.log(2.0) 
+
 @njit(fastmath=True)
 def _A_of_c(c):
     return math.log1p(c) - c / (1.0 + c)
@@ -24,7 +26,7 @@ def _nfw_sample_radius(u, rs, c, tol_radius):
     tol_x = tol_radius / rs
     if tol_x <= 1e-14: tol_x = 1e-14
     span = high - low
-    niter = int(math.ceil(math.log2(span / tol_x))) if span > tol_x else 1
+    niter = int(math.ceil(math.log(span / tol_x) / LOG2)) if span > tol_x else 1
     if niter > 64: niter = 64
     for _ in range(niter):
         mid = 0.5*(low+high)

@@ -1,6 +1,8 @@
 from numba import njit
 import math
 
+LOG2 = math.log(2.0) 
+
 @njit(fastmath=True)
 def nfw_reset_halo(r200, c):
     c_eff = c if c > 1e-10 else 1e-10
@@ -20,7 +22,7 @@ def nfw_sample_radius(u, rs, c, amp_c, tol_radius):
     tol_x = tol_radius / rs
     if tol_x <= 1e-14: tol_x = 1e-14
     span = high - low
-    niter = int(math.ceil(math.log2(span / tol_x))) if span > tol_x else 1
+    niter = int(math.ceil(math.log(span / tol_x)/LOG2)) if span > tol_x else 1
     if niter > 64: niter = 64
     for _ in range(niter):
         mid = 0.5*(low + high)

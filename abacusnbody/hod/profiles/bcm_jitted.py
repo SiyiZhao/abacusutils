@@ -6,6 +6,9 @@ from numba import njit, float64, int64
 # -----------------------------------------------------------------------------
 # SIMD-accelerated helpers and in-place integrators
 # -----------------------------------------------------------------------------
+
+LOG2 = math.log(2.0) 
+
 @njit(fastmath=True)
 def trapz_r2_f_simd(r_grid, fvals):
     r2f = r_grid * r_grid * fvals
@@ -133,7 +136,7 @@ def bisect_zeta(
     low, high = 0.1, 10.0
     Mg = m_enclosed_gas_inplace(r, r200, rco, rej, beta, rho0_gas, grid_size, grid_buf_gas, f_buf_gas)
     Mc = m_enclosed_cga(r, fcga, Mtot_nfw, Rh)
-    niter = int(math.ceil(math.log2((high-low)/tol)))
+    niter = int(math.ceil(math.log((high-low)/tol)/LOG2))
     for _ in range(niter):
         mid = 0.5*(low+high)
         Mi = m_enclosed_nfw_inplace(r / mid, r200, rho0_nfw, rs, rt, grid_size, grid_buf_nfw, f_buf_nfw)
@@ -233,7 +236,7 @@ def radius_from_random_simd(
 ):
     target = u*M200
     low, high = 0.0, 2.0*r200
-    niter = int(math.ceil(math.log2((high-low)/tol)))
+    niter = int(math.ceil(math.log((high-low)/tol)/LOG2))
     for _ in range(niter):
         mid = 0.5*(low+high)
         mval = m_enclosed_simd(

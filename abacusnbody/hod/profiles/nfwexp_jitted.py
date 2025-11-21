@@ -63,7 +63,4 @@ def nfwexp_sample_radius(u_switch, u_r,
         lam = tau * rs_base
         return _sample_exp(u_r, lam)
     else:
-        # rescaled NFW: rs' = rs_base / scale, c' = c_base * scale
-        rs_p = rs_base / scale
-        c_p  = c_base * scale
-        return _nfw_sample_radius(u_r, rs_p, c_p, tol_radius)
+        return _nfw_sample_radius(u_r, rs_base, c_base, tol_radius) * scale

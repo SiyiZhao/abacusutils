@@ -287,6 +287,7 @@ def gen_cent(
     lrg_vy = np.empty(N_lrg, dtype=mass.dtype)
     lrg_vz = np.empty(N_lrg, dtype=mass.dtype)
     lrg_mass = np.empty(N_lrg, dtype=mass.dtype)
+    lrg_vsmear = np.empty(N_lrg, dtype=mass.dtype)
     lrg_id = np.empty(N_lrg, dtype=ids.dtype)
 
     # galaxy arrays
@@ -298,6 +299,7 @@ def gen_cent(
     elg_vy = np.empty(N_elg, dtype=mass.dtype)
     elg_vz = np.empty(N_elg, dtype=mass.dtype)
     elg_mass = np.empty(N_elg, dtype=mass.dtype)
+    elg_vsmear = np.empty(N_elg, dtype=mass.dtype)
     elg_id = np.empty(N_elg, dtype=ids.dtype)
 
     # galaxy arrays
@@ -309,6 +311,7 @@ def gen_cent(
     qso_vy = np.empty(N_qso, dtype=mass.dtype)
     qso_vz = np.empty(N_qso, dtype=mass.dtype)
     qso_mass = np.empty(N_qso, dtype=mass.dtype)
+    qso_vsmear = np.empty(N_qso, dtype=mass.dtype)
     qso_id = np.empty(N_qso, dtype=ids.dtype)
 
     # fill in the galaxy arrays
@@ -328,7 +331,7 @@ def gen_cent(
                     tmp_dv_los_L = redshift_error_draw(u_cent_mag[i], u_cent_sign[i], u_grid_L, x_grid_L)
                 else:
                     tmp_dv_los_L = 0.0
-                
+                lrg_vsmear[j1] = tmp_dv_los_L
                 if rsd and origin is not None:
                     nx = lrg_x[j1] - origin[0]
                     ny = lrg_y[j1] - origin[1]
@@ -360,7 +363,7 @@ def gen_cent(
                     tmp_dv_los_E = redshift_error_draw(u_cent_mag[i], u_cent_sign[i], u_grid_E, x_grid_E)
                 else:
                     tmp_dv_los_E = 0.0
-                
+                elg_vsmear[j2] = tmp_dv_los_E
                 # rsd only applies to the z direction
                 if rsd and origin is not None:
                     nx = elg_x[j2] - origin[0]
@@ -393,7 +396,7 @@ def gen_cent(
                     tmp_dv_los_Q = redshift_error_draw(u_cent_mag[i], u_cent_sign[i], u_grid_Q, x_grid_Q)
                 else:
                     tmp_dv_los_Q = 0.0
-                
+                qso_vsmear[j3] = tmp_dv_los_Q
                 # rsd only applies to the z direction
                 if rsd and origin is not None:
                     nx = qso_x[j3] - origin[0]
@@ -427,6 +430,7 @@ def gen_cent(
     LRG_dict['vy'] = lrg_vy
     LRG_dict['vz'] = lrg_vz
     LRG_dict['mass'] = lrg_mass
+    LRG_dict['vsmear'] = lrg_vsmear
     ID_dict['LRG'] = lrg_id
 
     ELG_dict['x'] = elg_x
@@ -436,6 +440,7 @@ def gen_cent(
     ELG_dict['vy'] = elg_vy
     ELG_dict['vz'] = elg_vz
     ELG_dict['mass'] = elg_mass
+    ELG_dict['vsmear'] = elg_vsmear
     ID_dict['ELG'] = elg_id
 
     QSO_dict['x'] = qso_x
@@ -445,6 +450,7 @@ def gen_cent(
     QSO_dict['vy'] = qso_vy
     QSO_dict['vz'] = qso_vz
     QSO_dict['mass'] = qso_mass
+    QSO_dict['vsmear'] = qso_vsmear
     ID_dict['QSO'] = qso_id
     return LRG_dict, ELG_dict, QSO_dict, ID_dict, keep
 
@@ -738,6 +744,7 @@ def gen_sats_particles(
     lrg_vy = np.empty(N_lrg, dtype=hmass.dtype)
     lrg_vz = np.empty(N_lrg, dtype=hmass.dtype)
     lrg_mass = np.empty(N_lrg, dtype=hmass.dtype)
+    lrg_vsmear = np.empty(N_lrg, dtype=hmass.dtype)
     lrg_id = np.empty(N_lrg, dtype=hid.dtype)
 
     # galaxy arrays
@@ -749,6 +756,7 @@ def gen_sats_particles(
     elg_vy = np.empty(N_elg, dtype=hmass.dtype)
     elg_vz = np.empty(N_elg, dtype=hmass.dtype)
     elg_mass = np.empty(N_elg, dtype=hmass.dtype)
+    elg_vsmear = np.empty(N_elg, dtype=hmass.dtype)
     elg_id = np.empty(N_elg, dtype=hid.dtype)
 
     # galaxy arrays
@@ -760,6 +768,7 @@ def gen_sats_particles(
     qso_vy = np.empty(N_qso, dtype=hmass.dtype)
     qso_vz = np.empty(N_qso, dtype=hmass.dtype)
     qso_mass = np.empty(N_qso, dtype=hmass.dtype)
+    qso_vsmear = np.empty(N_qso, dtype=hmass.dtype)
     qso_id = np.empty(N_qso, dtype=hid.dtype)
 
     # fill in the galaxy arrays
@@ -783,6 +792,7 @@ def gen_sats_particles(
                     tmp_dv_los_L = redshift_error_draw(u_sat_mag[i], u_sat_sign[i], u_grid_L, x_grid_L)
                 else:
                     tmp_dv_los_L = 0.0
+                lrg_vsmear[j1] = tmp_dv_los_L
                 
                 if rsd and origin is not None:
                     nx = lrg_x[j1] - origin[0]
@@ -821,6 +831,7 @@ def gen_sats_particles(
                     tmp_dv_los_E = redshift_error_draw(u_sat_mag[i], u_sat_sign[i], u_grid_E, x_grid_E)
                 else:
                     tmp_dv_los_E = 0.0
+                elg_vsmear[j2] = tmp_dv_los_E
                 
                 if rsd and origin is not None:
                     nx = elg_x[j2] - origin[0]
@@ -858,6 +869,8 @@ def gen_sats_particles(
                     tmp_dv_los_Q = redshift_error_draw(u_sat_mag[i], u_sat_sign[i], u_grid_Q, x_grid_Q)
                 else:
                     tmp_dv_los_Q = 0.0
+
+                qso_vsmear[j3] = tmp_dv_los_Q
                 
                 if rsd and origin is not None:
                     nx = qso_x[j3] - origin[0]
@@ -891,6 +904,7 @@ def gen_sats_particles(
     LRG_dict['vy'] = lrg_vy
     LRG_dict['vz'] = lrg_vz
     LRG_dict['mass'] = lrg_mass
+    LRG_dict['vsmear'] = lrg_vsmear
     ID_dict['LRG'] = lrg_id
 
     ELG_dict['x'] = elg_x
@@ -900,6 +914,7 @@ def gen_sats_particles(
     ELG_dict['vy'] = elg_vy
     ELG_dict['vz'] = elg_vz
     ELG_dict['mass'] = elg_mass
+    ELG_dict['vsmear'] = elg_vsmear
     ID_dict['ELG'] = elg_id
 
     QSO_dict['x'] = qso_x
@@ -909,6 +924,7 @@ def gen_sats_particles(
     QSO_dict['vy'] = qso_vy
     QSO_dict['vz'] = qso_vz
     QSO_dict['mass'] = qso_mass
+    QSO_dict['vsmear'] = qso_vsmear
     ID_dict['QSO'] = qso_id
     return LRG_dict, ELG_dict, QSO_dict, ID_dict
 

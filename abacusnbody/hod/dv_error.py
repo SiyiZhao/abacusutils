@@ -4,6 +4,9 @@ import numpy as np, math
 EMPTY_F64 = np.empty(0, dtype=np.float64)
 
 def load_inv_cdf_or_empty(want_dv, tracers, tracer_key, npy_path):
+    '''
+    Load the inverse CDF table for redshift errors if want_dv=True and tracer_key is in tracers. Otherwise return empty arrays.
+    '''
     if want_dv and (tracer_key in tracers):
         if npy_path is None:
             raise RuntimeError(f"want_dv is True and {tracer_key} is in tracers, but dv_draw_{tracer_key} is None")
@@ -15,6 +18,14 @@ def load_inv_cdf_or_empty(want_dv, tracers, tracer_key, npy_path):
         return EMPTY_F64, EMPTY_F64
 
 def build_inv_cdf_table(vbin, cdf):
+    '''
+    Build inverse CDF table from vbin and cdf arrays.
+    vbin: velocity bin centers (linear, in km/s).
+    cdf: cumulative distribution function values (non-decreasing).
+    Returns u_grid, x_grid for inverse CDF evaluation.
+    u_grid: normalized CDF values in [0,1].
+    x_grid: corresponding vbin values (in log10|Δv|).
+    '''
     import numpy as np
     cdf_u, ind = np.unique(cdf, return_index=True)
     u_grid = (cdf_u / cdf_u[-1]).astype(np.float64)
@@ -23,6 +34,10 @@ def build_inv_cdf_table(vbin, cdf):
 
 @njit(fastmath=True)
 def inv_cdf_eval_linear(u, u_grid, x_grid):
+    '''
+    Evaluate the inverse CDF at u using linear interpolation.
+    u_grid, x_grid: inverse CDF table from build_inv_cdf_table.
+    '''
     if u <= u_grid[0]:  return x_grid[0]
     if u >= u_grid[-1]: return x_grid[-1]
     i = np.searchsorted(u_grid, u)
@@ -32,6 +47,12 @@ def inv_cdf_eval_linear(u, u_grid, x_grid):
     
 @njit(fastmath=True)
 def redshift_error_draw(u_mag, u_sign, u_grid, x_grid):
+    '''
+    Draw a velocity error from the inverse CDF table.
+    u_mag: uniform random number in [0,1) for magnitude.
+    u_sign: uniform random number in [0,1) for sign, if <0.5 then negative.
+    u_grid, x_grid: inverse CDF table from build_inv_cdf_table.
+    '''
     expo = inv_cdf_eval_linear(u_mag, u_grid, x_grid)  # log10|Δv|
     dv   = 10.0 ** expo
     return dv if u_sign < 0.5 else -dv

@@ -1944,12 +1944,10 @@ class AbacusHOD:
                 if i1 > i2:
                     continue  # cross-correlations are symmetric
                 if i1 == i2:
-                    print(tr1 + '_' + tr2)
                     clustering[tr1 + '_' + tr2] = calc_wp_fast(
                         x1, y1, z1, rpbins, pimax, self.lbox, Nthread
                     )
                 else:
-                    print(tr1 + '_' + tr2)
                     x2 = mock_dict[tr2]['x']
                     y2 = mock_dict[tr2]['y']
                     z2 = mock_dict[tr2]['z']

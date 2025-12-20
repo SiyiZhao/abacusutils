@@ -47,7 +47,7 @@ This step depends on following settings:
     - 'cleaned_halos': whether to use cleaned halo catalogs;
     - 'halo_lc' if set: use lightcone halos;
     - the output directory will be under 'subsample_dir';
-- 'MT': mass threshold, fixed to True;
+- 'MT': mass threshold, fixed to True; ([Commit 04d844f](https://github.com/SiyiZhao/abacusutils/commit/04d844f6e195cdb440c322d80550ad61b457a663) turn it to True, it's False in parent repo.)
 - 'prepare_sim': 
     - 'Nthread_per_load': default 'auto', would calculate with the CPUs number and 'Nparallel_load';
     - 'Nparallel_load': max workers in parallel, it use `concurrent.futures.ProcessPoolExecutor` to work in parallel;
